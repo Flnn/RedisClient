@@ -1,5 +1,8 @@
 package com.dev.redis;
 
+import com.google.common.collect.Lists;
+import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -7,7 +10,10 @@ import redis.clients.jedis.HostAndPort;
 import redis.clients.jedis.JedisCluster;
 import redis.clients.jedis.JedisPoolConfig;
 
+import java.lang.reflect.Type;
 import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -53,14 +59,124 @@ public class RedisClientUtil {
      *
      * @param key
      * @param value
+     * @return redis返回值
      */
-    public static void stringSet(String cacheType, String key, String value) throws Exception {
+    public static String stringSet(String cacheType, String key, String value) throws Exception {
         CommonResult keyResult = getGeneralKey(cacheType, key);
         if(!keyResult.isSuccess()){
             throw new Exception(keyResult.getMsg());
         }
-        clusterClient.set(keyResult.getMsg(), value);
-        logger.info("设置成功,key ==> " + keyResult.getMsg());
+        String result = clusterClient.set(keyResult.getMsg(), value);
+        logger.info("设置缓存,key ==> {}, value==> {},redis返回值：{} ",keyResult.getMsg(),value,result);
+        return result;
+    }
+
+    /**
+     * 批量设置 使用Map封装多组数据，对应redis mset方法
+     * @param cacheType 缓存类型
+     * @param dataMap   数据集 key-value形式
+     */
+    public static String StringMapSet(String cacheType, Map<String,String> dataMap) throws Exception {
+        if(dataMap == null || dataMap.size()==0){
+            throw new Exception("ERROR!! 数据集不能为空");
+        }
+        String[] strArray = new String[dataMap.size() * 2];
+        int count=0;
+        for(String key : dataMap.keySet()){
+            CommonResult keyResult = getGeneralKey(cacheType, key);
+            if(!keyResult.isSuccess()){
+                throw new Exception(keyResult.getMsg());
+            }
+            strArray[count] = keyResult.getMsg();
+            strArray[count++] = dataMap.get(key);
+        }
+        String result = clusterClient.mset(strArray);
+        return result;
+    }
+
+    /**
+     * 从缓存中取值
+     * @param cacheType
+     * @param key
+     * @return
+     * @throws Exception
+     */
+    public static String stringGet(String cacheType, String key) throws Exception {
+        CommonResult keyResult = getGeneralKey(cacheType, key);
+        if(!keyResult.isSuccess()){
+            throw new Exception(keyResult.getMsg());
+        }
+        String getResult = clusterClient.get(keyResult.getMsg());
+        return getResult;
+    }
+
+    /**
+     * 从redis中获取json字符串，转换成指定对象返回
+     * @param cacheType
+     * @param key
+     * @param clazz
+     * @return
+     * @throws Exception
+     */
+    public static Object objectGetByJsonString(String cacheType, String key,Class clazz) throws Exception {
+        CommonResult keyResult = getGeneralKey(cacheType, key);
+        if(!keyResult.isSuccess()){
+            throw new Exception(keyResult.getMsg());
+        }
+        String jsonString = clusterClient.get(keyResult.toString());
+        Gson gson = new Gson();
+        return gson.fromJson(jsonString, clazz);
+    }
+
+    /**
+     * 存储某一类对象组成的集合
+     * @param cacheType
+     * @param key
+     * @param listObject
+     * @param <E>
+     * @return
+     * @throws Exception
+     */
+    public static <E> String listObjectSet(String cacheType, String key, List<E> listObject) throws Exception {
+        CommonResult keyResult = getGeneralKey(cacheType, key);
+        if(!keyResult.isSuccess()){
+            throw new Exception(keyResult.getMsg());
+        }
+        Gson gson = new Gson();
+        String jsonStr = gson.toJson(listObject);
+        String result = clusterClient.set(keyResult.getMsg(), jsonStr);
+        return result;
+    }
+
+    /**
+     * 从缓存中获取一个字符串，转换成List<Object>
+     * @param cacheType
+     * @param key
+     * @param type 示例用法 new TypeToken<List<User>>(){}.getType(); TypeToken 取自Gson工具包
+     * @param <E>
+     * @return
+     */
+    public static <E> List<E> listObjectGet(String cacheType, String key, Type type) throws Exception {
+        CommonResult keyResult = getGeneralKey(cacheType, key);
+        if(!keyResult.isSuccess()){
+            throw new Exception(keyResult.getMsg());
+        }
+        String jsonStr = clusterClient.get(keyResult.getMsg());
+        Gson gson = new Gson();
+        return gson.fromJson(jsonStr, type);
+    }
+
+    /**
+     * 将一个对象以hash类型存储到redis中
+     * @param cacheType
+     * @param key
+     * @param object
+     * @param <E>
+     * @return
+     */
+    public static <E> String hashSet(String cacheType, String key,E object) {
+
+        return null;
     }
 
     /**
@@ -72,10 +188,10 @@ public class RedisClientUtil {
     private static CommonResult getGeneralKey(String cacheType, String key) {
 
         if(StringUtils.isBlank(cacheType)){
-            return CommonResult.createByErrorMessage("cache_type不合法!!!");
+            return CommonResult.createByErrorMessage("cache_type不合法!!!" + cacheType);
         }
         if(StringUtils.isBlank(key)){
-            return CommonResult.createByErrorMessage("cache_type不合法!!!");
+            return CommonResult.createByErrorMessage("key不合法!!!" + key);
         }
         return CommonResult.createBySuccessMessage(APP_NAME + "_" + cacheType + "_" + key);
     }
