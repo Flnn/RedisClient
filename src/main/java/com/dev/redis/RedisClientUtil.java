@@ -1,8 +1,6 @@
 package com.dev.redis;
 
-import com.google.common.collect.Lists;
 import com.google.gson.Gson;
-import com.google.gson.reflect.TypeToken;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -129,6 +127,24 @@ public class RedisClientUtil {
     }
 
     /**
+     * 将一个对象转成JSON字符串，使用String类型存储到redis
+     * @param cacheType
+     * @param key
+     * @param data
+     * @return
+     * @throws Exception
+     */
+    public static String objectSetByJsonString(String cacheType, String key, Object data) throws Exception{
+        CommonResult keyResult = getGeneralKey(cacheType, key);
+        if(!keyResult.isSuccess()){
+            throw new Exception(keyResult.getMsg());
+        }
+        Gson gson = new Gson();
+        String jsonStr = gson.toJson(data);
+        return clusterClient.set(keyResult.getMsg(), jsonStr);
+    }
+
+    /**
      * 存储某一类对象组成的集合
      * @param cacheType
      * @param key
@@ -175,6 +191,19 @@ public class RedisClientUtil {
      * @return
      */
     public static <E> String hashSet(String cacheType, String key,E object) {
+
+        return null;
+    }
+
+    /**
+     * 批量缓存对象，使用hash类型
+     * @param cacheType
+     * @param key
+     * @param data
+     * @param <E>
+     * @return
+     */
+    public static <E> String hashMultiSet(String cacheType, String key, List<E> data) {
 
         return null;
     }
