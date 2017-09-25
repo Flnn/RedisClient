@@ -19,7 +19,7 @@ public class RedisHashUtil {
     /**
      * 使用反射获取对象的所有属性和值
      * @param pojo
-     * @param notIncludeEmpty 是否包含空值 null,"" "  " 等等
+     * @param notIncludeEmpty 不包含空值 null,"" "  " 等等
      * @return
      */
     public static Map<String,String> objectTransToMap(Object pojo,boolean notIncludeEmpty) throws IllegalAccessException {
@@ -30,6 +30,10 @@ public class RedisHashUtil {
             Type fieldType = field.getGenericType();
             Object value = field.get(pojo);
             if(notIncludeEmpty && isEmpty(value)){
+                continue;
+            }
+            if(isEmpty(value)){
+                result.put(field.getName(), "");
                 continue;
             }
             if(fieldType.equals(Date.class)){

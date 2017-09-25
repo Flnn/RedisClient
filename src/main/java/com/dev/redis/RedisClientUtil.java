@@ -8,6 +8,7 @@ import redis.clients.jedis.HostAndPort;
 import redis.clients.jedis.JedisCluster;
 import redis.clients.jedis.JedisPoolConfig;
 
+import java.io.Serializable;
 import java.lang.reflect.Type;
 import java.util.HashSet;
 import java.util.List;
@@ -188,22 +189,59 @@ public class RedisClientUtil {
      * @param key
      * @param object
      * @param <E>
+     * @param notIncludeEmpty 不包含空值
      * @return
      */
-    public static <E> String hashSet(String cacheType, String key,E object) {
-
-        return null;
+    public static <E> String hashSet(String cacheType, String key,E object,boolean notIncludeEmpty) throws Exception {
+        CommonResult keyResult = getGeneralKey(cacheType, key);
+        if(!keyResult.isSuccess()){
+            throw new Exception(keyResult.getMsg());
+        }
+        String res = clusterClient.hmset(keyResult.getMsg(),RedisHashUtil.objectTransToMap(object,notIncludeEmpty));
+        return res;
     }
 
     /**
-     * 批量缓存对象，使用hash类型
+     * 将一个可序列化对象按序列化方式存储
      * @param cacheType
      * @param key
+     * @param object
+     * @return
+     * @throws Exception
+     */
+    public static String setSerializedObject(String cacheType, String key, Serializable object) throws Exception{
+        CommonResult keyResult = getGeneralKey(cacheType, key);
+        if(!keyResult.isSuccess()) {
+            throw new Exception(keyResult.getMsg());
+        }
+        byte[] objBytes = SerializeUtil.serialize(object);
+        String result = clusterClient.set(keyResult.getMsg().getBytes(), objBytes);
+        return result;
+    }
+
+    /**
+     *
+     * @param cacheType
+     * @param key
+     * @return
+     * @throws Exception
+     */
+    public static Object getSerializedObject(String cacheType,String key) throws Exception{
+        CommonResult keyResult = getGeneralKey(cacheType, key);
+        if(!keyResult.isSuccess()) {
+            throw new Exception(keyResult.getMsg());
+        }
+        byte[] objBytes = clusterClient.get(keyResult.getMsg().getBytes());
+        return SerializeUtil.unserialize(objBytes);
+    }
+    /**
+     * 批量缓存对象，使用hash类型
+     * @param cacheType
      * @param data
-     * @param <E>
+     * @param <E> 用于批量存取对象数据
      * @return
      */
-    public static <E> String hashMultiSet(String cacheType, String key, List<E> data) {
+    public static <E> String hashMultiSet(String cacheType, Map<String,E> data) {
 
         return null;
     }
